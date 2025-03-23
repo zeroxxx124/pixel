@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>perfect pixel</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #121212;
+            color: white;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            width: 95vw;
+            height: 95vh;
+            padding: 30px;
+            background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border-radius: 20px;
+            box-shadow: 0px 6px 15px rgba(255, 255, 255, 0.3);
+        }
+        .chat-container {
+            width: 80%;
+            height: 70%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            background-size: cover;
+            background-position: center;
+            display: none;
+        }
+        .call-controls {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            display: none;
+        }
+        .call-icon, .end-call {
+            font-size: 28px;
+            cursor: pointer;
+            background: #6200ea;
+            padding: 12px;
+            border-radius: 50%;
+            transition: background 0.3s;
+            box-shadow: 0px 3px 7px rgba(0, 0, 0, 0.3);
+        }
+        .call-icon:hover, .end-call:hover {
+            background: #3700b3;
+        }
+        .message-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .message-container img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .message-bubble {
+            background: #333;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .users-list, .call-users-list {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 12px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        input {
+            background: #333;
+            color: white;
+        }
+        button {
+            background: #6200ea;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #3700b3;
+        }
+        #chat-box {
+            width: 100%;
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid white;
+            padding: 12px;
+            background-color: #222;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="call-controls" id="call-section">
+            <span class="call-icon" id="call-icon" onclick="startCall()">📞</span>
+            <span class="end-call" id="end-call" onclick="endCall()">❌</span>
+        </div>
+        <div class="chat-container" id="chat-section">
+            <h2>Group Chat</h2>
+            <div class="users-list" id="users-list">Active Users: </div>
+            <div class="call-users-list" id="call-users-list">In Call: </div>
+            <div id="chat-box"></div>
+            <input type="text" id="message" placeholder="Type a message">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+        <div id="key-section">
+            <p>Enter the access key to join:</p>
+            <input type="text" id="access-key" placeholder="Enter key">
+            <button onclick="verifyKey()">Enter</button>
+        </div>
+        <div id="name-section" style="display: none;">
+            <p>Enter your name:</p>
+            <input type="text" id="user-name" placeholder="Enter name">
+            <p>Select your photo:</p>
+            <input type="file" id="profile-pic" accept="image/*">
+            <button onclick="enterChat()">Join Chat</button>
+        </div>
+    </div>
+    <script>
+        let currentUserName = "";
+        let users = [];
+        let callUsers = [];
+        let profilePicUrl = "";
+
+        function verifyKey() {
+            let inputKey = document.getElementById("access-key").value;
+            if (inputKey === "12345") {
+                document.getElementById("key-section").style.display = "none";
+                document.getElementById("name-section").style.display = "block";
+            } else {
+                alert("Invalid key!");
+            }
+        }
+
+        function enterChat() {
+            let fileInput = document.getElementById("profile-pic");
+            if (fileInput.files.length > 0) {
+                let reader = new FileReader();
+                reader.onload = function(event) {
+                    profilePicUrl = event.target.result;
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+            currentUserName = document.getElementById("user-name").value;
+            users.push(currentUserName);
+            document.getElementById("users-list").innerText = "Active Users: " + users.join(", ");
+            document.getElementById("name-section").style.display = "none";
+            document.getElementById("chat-section").style.display = "flex";
+            document.getElementById("call-section").style.display = "flex";
+        }
+
+        function sendMessage() {
+            let message = document.getElementById("message").value;
+            if (message.trim() === "") return;
+            let chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML += `<div class='message-container'><img src="${profilePicUrl}" alt="Profile"><span class='message-bubble'><b>${currentUserName}:</b> ${message}</span></div>`;
+            document.getElementById("message").value = "";
+        }
+    </script>
+<script>
+    let localStream;
+    let peerConnection;
+    let remoteStream;
+    const config = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    };
+
+    async function startCall() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            peerConnection = new RTCPeerConnection(config);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            
+            remoteStream = new MediaStream();
+            peerConnection.ontrack = event => {
+                event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+            };
+            
+            let remoteAudio = document.getElementById("remoteAudio");
+            if (!remoteAudio) {
+                remoteAudio = document.createElement("audio");
+                remoteAudio.id = "remoteAudio";
+                remoteAudio.autoplay = true;
+                document.body.appendChild(remoteAudio);
+            }
+            remoteAudio.srcObject = remoteStream;
+            
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    console.log("New ICE candidate:", event.candidate);
+                    // Send ICE candidate to remote peer
+                }
+            };
+            
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            console.log("Offer created:", offer);
+            // Send offer to remote peer
+
+        } catch (error) {
+            console.error("Error starting call:", error);
+        }
+    }
+
+    function endCall() {
+        if (peerConnection) {
+            peerConnection.getSenders().forEach(sender => peerConnection.removeTrack(sender));
+            peerConnection.close();
+            peerConnection = null;
+        }
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(track => track.stop());
+            remoteStream = null;
+        }
+        const remoteAudio = document.getElementById("remoteAudio");
+        if (remoteAudio) {
+            remoteAudio.srcObject = null;
+            remoteAudio.remove();
+        }
+        console.log("Call ended");
+    }
+</script>
+</body>
+</html>
